@@ -379,8 +379,20 @@ void client_loop(int client_handler)
 			goto loop;
 		}
 		
-		// CWD
-		if (strcmp(cmd[0],"cwd") == 0) {
+		// MV
+		if (strcmp(cmd[0],"mv") == 0) {
+			if (args != 3) {
+				sendstr(client_handler,"syntax: mv <oldpath> <newpath>\n");
+				goto loop;
+			}
+			
+			rename(cmd[1],cmd[2]);
+			
+			goto loop;
+		}
+		
+		// PWD
+		if (strcmp(cmd[0],"pwd") == 0) {
 			char * cwd = malloc(PATH_MAX);
 			if (cwd == NULL) {
 				sendstr(client_handler,"could not allocate memory!\n");
