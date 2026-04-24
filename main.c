@@ -210,6 +210,48 @@ int unlink_cb(const char *fpath, const struct stat *sb, int typeflag, struct FTW
     return rv;
 }
 
+// Load file into memory
+void * allocfile(size_t * size, char * fp) {
+	// Open file
+	FILE * f = fopen(fp,"rb");
+	if (f == NULL) { return NULL; }
+	
+	// Get file size
+	if (fseek(f,0,SEEK_END)) {
+		fclose(f);
+		return NULL;
+	}
+	
+	long fl = ftell(f);
+	if (fl == -1) {
+		fclose(f);
+		return NULL;
+	}
+	
+	if (fseek(f,0,SEEK_SET)) {
+		fclose(f);
+		return NULL;
+	}
+	
+	// Allocate memory
+	void * filebuf = malloc(fl);
+	if (filebuf == NULL) {
+		fclose(f);
+		return NULL;
+	}
+	
+	// Read file into buffer
+	size_t flr = fread(filebuf,1,fl,f);
+	fclose(f);
+	if (flr != fl) {
+		free(filebuf);
+		return NULL;
+	}
+	
+	*size = (size_t)fl;
+	return filebuf;
+}
+
 //char buffer[100];
 void client_loop(int client_handler)
 {
@@ -399,10 +441,18 @@ void client_loop(int client_handler)
 				goto loop;
 			}
 			
-			if (SifLoadModule(cmd[1],0,NULL) < 0) {
+			size_t size;
+			void * file = allocfile(&size,cmd[1]);
+			if (file == NULL) {
+				sendstr(client_handler,"failed to load file into memory!\n");
+				goto loop;
+			}
+			
+			if (SifExecModuleBuffer(file,size,0,NULL,NULL) < 0) {
 				sendstr(client_handler,"failed to load module!\n");
 			}
 			
+			free(file);
 			goto loop;
 		}
 		
