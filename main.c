@@ -14,11 +14,9 @@
 #include <sifrpc.h>
 #include <loadfile.h>
 #include <stdio.h>
-#include <string.h>
-
 #include <tcpip.h>
-#include "ps2ips.h"
 
+#include <string.h>
 #include <stdlib.h>
 #include <dirent.h>
 #include <unistd.h>
@@ -27,11 +25,19 @@
 #include <ftw.h>
 #include <stdint.h>
 
-#define PS2NETCON_RECV_BUFSIZE 1024
+#include "eth.c"
+
+#define PS2NETCON_RECV_BUFSIZE 1024 * 128
 
 // bin2c
-extern unsigned char ps2ips_irx[];
-extern unsigned int size_ps2ips_irx;
+extern unsigned char SIO2MAN_irx[];
+extern unsigned int size_SIO2MAN_irx;
+extern unsigned char MCMAN_irx[];
+extern unsigned int size_MCMAN_irx;
+extern unsigned char MCSERV_irx[];
+extern unsigned int size_MCSERV_irx;
+extern unsigned char FILEIO_irx[];
+extern unsigned int size_FILEIO_irx;
 
 int dir_exists(char * name) {
 	int result = 0;
@@ -199,7 +205,7 @@ char ** recvcmd(int sockfd) {
 
 void qrtn(int comp, char * err) {
 	if (comp) {
-		printf("ERROR: %s\n",err);
+		scr_printf("ERROR: %s\n",err);
 		SleepThread();
 	}
 }
@@ -259,15 +265,15 @@ void client_loop(int client_handler)
 		sendstr(client_handler,">");
 		char ** cmd = recvcmd(client_handler);
 		if (cmd == NULL) { return; }
-		ssize_t i = 0;
+		/*ssize_t i = 0;
 		while (1) {
 			if (cmd[i] == NULL) { break; }
-			printf("arg: '%s'\n",cmd[i]);
+			scr_printf("arg: '%s'\n",cmd[i]);
 			i++;
-		}
+		}*/
 		
 		ssize_t args = lencmd(cmd);
-		printf("END: %d args\n",(int)args);
+		//scr_printf("END: %d args\n",(int)args);
 		
 		if (args < 1) { goto loop; }
 		
@@ -482,16 +488,13 @@ void client_loop(int client_handler)
 			while (bytes_left > 0) {
 				size_t bytes_read = PS2NETCON_RECV_BUFSIZE;
 				if (bytes_left < bytes_read) { bytes_read = bytes_left; }
-				// I would like to use recvall here, but it crashes the system.
-				ssize_t n = recv(client_handler,buf,bytes_read,0);
+				ssize_t n = recvall(client_handler,buf,bytes_read,0);
 				if (n < 1) { // connection closed
 					fclose(fh);
 					free(buf);
 					goto exit;
 				}
 				
-				//fwrite(buf,n,1,fh)
-				//size_t status = ps2_fwrite(buf,n,fh);
 				size_t status = fwrite(buf,n,1,fh);
 				if (status != 1) {
 					fclose(fh);
@@ -518,6 +521,10 @@ void client_loop(int client_handler)
 		freecmd(cmd);
 		continue;
 		
+		shutdown:;
+		freecmd(cmd);
+		exit(0);
+		
 		exit:;
 		freecmd(cmd);
 		return;
@@ -539,7 +546,7 @@ void server_loop()
 	
 	if (server_handler < 0)
 	{
-		printf("Could not create socket\n");
+		scr_printf("Could not create socket\n");
 		SleepThread();
 	}
 	
@@ -550,6 +557,7 @@ void server_loop()
 	
 	qrtn((bind(server_handler,(struct sockaddr *)&server_addr,sizeof(server_addr)) < 0),"Failed to bind socket");
 	qrtn((listen(server_handler,64) < 0),"Failed to listen on socket");
+	scr_printf("Listening on TCP port 1234.\n");
 	
 	while(1)
 	{
@@ -561,17 +569,14 @@ void server_loop()
 
 int main(int argc, char *argv[])
 {
-	sceSifInitRpc(0);
-	SifExecModuleBuffer(ps2ips_irx, size_ps2ips_irx, 0, NULL, NULL); // TODO: Handle failure
-	qrtn((ps2ip_init() < 0),"ps2ip_init failed");
-	
-	if (!dir_exists("host:")) {
-		// TODO: initialize network hardware (see tcpip-dhcp example)
-		printf("(!!!) no ps2link detected - TODO\n");
-	} else {
-		printf("ps2link detected\n");
+	while(1) {
+		ethStart();
+		SifExecModuleBuffer(SIO2MAN_irx, size_SIO2MAN_irx, 0, NULL, NULL);
+		SifExecModuleBuffer(MCMAN_irx, size_MCMAN_irx, 0, NULL, NULL);
+		SifExecModuleBuffer(MCSERV_irx, size_MCSERV_irx, 0, NULL, NULL);
+		SifExecModuleBuffer(FILEIO_irx, size_FILEIO_irx, 0, NULL, NULL);
+		sbv_patch_fileio(); // This may have to go outside of this loop
+		server_loop();
 	}
-	
-	server_loop();
 	return 0;
 }

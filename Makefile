@@ -7,18 +7,36 @@
 # Review ps2sdk README & LICENSE files for further details.
 
 EE_BIN = ps2netcon.elf
-EE_OBJS = main.o ps2ips_irx.o
-EE_LIBS = -lps2ips -lc
+EE_OBJS = main.o DEV9_irx.o NETMAN_irx.o SMAP_irx.o SIO2MAN_irx.o MCMAN_irx.o MCSERV_irx.o FILEIO_irx.o
+EE_LIBS = -lc -lnetman -lps2ip -ldebug -lpatches
 EE_CFLAGS = -Os
 EE_LDFLAGS = -s
 
-all: ps2ips_irx.c $(EE_BIN)
+all: DEV9_irx.c NETMAN_irx.c SMAP_irx.c $(EE_BIN)
 
-ps2ips_irx.c: $(PS2SDK)/iop/irx/ps2ips.irx
-	bin2c $< ps2ips_irx.c ps2ips_irx
+DEV9_irx.c: $(PS2SDK)/iop/irx/ps2dev9.irx
+	bin2c $< DEV9_irx.c DEV9_irx
+
+NETMAN_irx.c: $(PS2SDK)/iop/irx/netman.irx
+	bin2c $< NETMAN_irx.c NETMAN_irx
+
+SMAP_irx.c: $(PS2SDK)/iop/irx/smap.irx
+	bin2c $< SMAP_irx.c SMAP_irx
+
+SIO2MAN_irx.c: $(PS2SDK)/iop/irx/sio2man.irx
+	bin2c $< SIO2MAN_irx.c SIO2MAN_irx
+
+MCMAN_irx.c: $(PS2SDK)/iop/irx/mcman.irx
+	bin2c $< MCMAN_irx.c MCMAN_irx
+
+MCSERV_irx.c: $(PS2SDK)/iop/irx/mcserv.irx
+	bin2c $< MCSERV_irx.c MCSERV_irx
+
+FILEIO_irx.c: $(PS2SDK)/iop/irx/fileXio.irx
+	bin2c $< FILEIO_irx.c FILEIO_irx
 
 clean:
-	rm -f $(EE_BIN) $(EE_OBJS) ps2ips_irx.c
+	rm -f $(EE_BIN) $(EE_OBJS) *_irx.c
 
 run: $(EE_BIN)
 	ps2client execee host:$(EE_BIN)

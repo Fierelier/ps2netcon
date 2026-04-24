@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 set -e
 IP="$1"
+NEUTRINO="mc0:/APPS/neutrino/modules"
 
 (
-	echo "irx host:/neutrino/modules/iomanX.irx"
-	echo "irx host:/neutrino/modules/fileXio.irx"
-	echo "irx host:/neutrino/modules/bdm.irx"
-	echo "irx host:/neutrino/modules/bdmfs_fatfs.irx"
-	echo "irx host:/neutrino/modules/ata_bd.irx"
+	echo "irx $NEUTRINO/iomanX.irx"
+#	echo "irx $NEUTRINO/fileXio.irx"
+	echo "irx $NEUTRINO/bdm.irx"
+	echo "irx $NEUTRINO/bdmfs_fatfs.irx"
+	echo "irx $NEUTRINO/ata_bd.irx"
 	echo "exit"
-) | nc "$IP" 1234
+) | socat TCP:"$IP":1234
