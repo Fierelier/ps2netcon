@@ -15,6 +15,7 @@
 #include <loadfile.h>
 #include <stdio.h>
 #include <tcpip.h>
+#include <delaythread.h>
 
 #include <string.h>
 #include <stdlib.h>
@@ -287,6 +288,9 @@ void client_loop(int client_handler)
 		if (strcmp(cmd[0],"reset") == 0) {
 			sendstr(client_handler,"goodbye!\n");
 			close(client_handler);
+			
+			// Wait for the connection to terminate (find a better way?)
+			DelayThread(2 * 1000 * 1000);
 			
 			// Destroy networking
 			ps2ipDeinit();
