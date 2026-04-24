@@ -9,4 +9,4 @@ TARGET="$3"
 	echo "recv '$TARGET' '$SIZE'"
 	pv "$FILE"
 	echo "exit"
-) | nc "$IP" 1234
+) | nc -O 65536 "$IP" 1234

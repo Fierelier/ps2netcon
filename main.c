@@ -27,6 +27,8 @@
 #include <ftw.h>
 #include <stdint.h>
 
+#define PS2NETCON_RECV_BUFSIZE 1024
+
 // bin2c
 extern unsigned char ps2ips_irx[];
 extern unsigned int size_ps2ips_irx;
@@ -41,13 +43,13 @@ int dir_exists(char * name) {
 	return result;
 }
 
-ssize_t sendall(int sockfd, void * buffer, ssize_t size, int flags) {
-	ssize_t total = 0;
-	ssize_t bytes_left = size;
+ssize_t sendall(int sockfd, void * buffer, size_t size, int flags) {
+	size_t total = 0;
+	size_t bytes_left = size;
 	ssize_t n;
 	
 	while (total < size) {
-		n = send(sockfd,buffer + total,bytes_left,flags);
+		n = send(sockfd,(char *)buffer + total,bytes_left,flags);
 		if (n < 1) { return -1; }
 		total += n;
 		bytes_left -= n;
@@ -58,13 +60,13 @@ ssize_t sendall(int sockfd, void * buffer, ssize_t size, int flags) {
 
 #define sendstr(sockfd,s) sendall(sockfd,s,sizeof(s),0)
 
-ssize_t recvall(int sockfd, void * buffer, ssize_t size, int flags) {
-	ssize_t total = 0;
-	ssize_t bytes_left = size;
+ssize_t recvall(int sockfd, void * buffer, size_t size, int flags) {
+	size_t total = 0;
+	size_t bytes_left = size;
 	ssize_t n;
 	
 	while (total < size) {
-		n = recv(sockfd,buffer + total,bytes_left,flags);
+		n = recv(sockfd,(char *)buffer + total,bytes_left,flags);
 		if (n < 1) { return -1; }
 		total += n;
 		bytes_left -= n;
@@ -212,24 +214,6 @@ int unlink_cb(const char *fpath, const struct stat *sb, int typeflag, struct FTW
 void client_loop(int client_handler)
 {
 	while (1) {
-		/*int size = recv(client_handler, buffer, 100, 0);
-		if (size <= 0)
-		{
-			printf("recv() returned %i\n", size);
-			return;
-		}
-		sendall(client_handler, buffer, size, 0);*/
-		
-		
-		/*int is_end;
-		char * s = recvarg(&is_end,client_handler);
-		if (s == NULL) { return; }
-		printf("arg: '%s'\n",s);
-		free(s);
-		if (is_end) {
-			printf("END\n");
-		}*/
-		
 		sendstr(client_handler,">");
 		char ** cmd = recvcmd(client_handler);
 		if (cmd == NULL) { return; }
@@ -416,7 +400,7 @@ void client_loop(int client_handler)
 				goto exit;
 			}
 			
-			char * buf = malloc(65536);
+			char * buf = malloc(PS2NETCON_RECV_BUFSIZE);
 			if (buf == NULL) {
 				sendstr(client_handler,"allocating memory failed!\n");
 				fclose(fh);
@@ -425,8 +409,9 @@ void client_loop(int client_handler)
 			
 			long long bytes_left = strtoll(cmd[2],NULL,10);
 			while (bytes_left > 0) {
-				ssize_t bytes_read = 65536;
-				if (bytes_left < bytes_read) { bytes_read = (ssize_t)bytes_left; }
+				size_t bytes_read = PS2NETCON_RECV_BUFSIZE;
+				if (bytes_left < bytes_read) { bytes_read = bytes_left; }
+				// I would like to use recvall here, but it crashes the system.
 				ssize_t n = recv(client_handler,buf,bytes_read,0);
 				if (n < 1) { // connection closed
 					fclose(fh);
@@ -434,6 +419,8 @@ void client_loop(int client_handler)
 					goto exit;
 				}
 				
+				//fwrite(buf,n,1,fh)
+				//size_t status = ps2_fwrite(buf,n,fh);
 				size_t status = fwrite(buf,n,1,fh);
 				if (status != 1) {
 					fclose(fh);
@@ -475,7 +462,7 @@ void server_loop()
 	int client_len;
 	
 	server_handler = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-	int blen = 65536;
+	//int blen = 1024 * 16;
 	//setsockopt(server_handler, SOL_SOCKET, SO_RCVBUF, &blen, (socklen_t)sizeof(int));
 	//setsockopt(server_handler, SOL_SOCKET, SO_SNDBUF, &blen, (socklen_t)sizeof(int));
 	
