@@ -235,6 +235,27 @@ void client_loop(int client_handler)
 			goto exit;
 		}
 		
+		// RESET
+		if (strcmp(cmd[0],"reset") == 0) {
+			sendstr(client_handler,"goodbye!\n");
+			close(client_handler);
+			
+			// Destroy networking
+			ps2ipDeinit();
+			NetManDeinit();
+			sceSifExitRpc();
+			
+			// Reset iop
+			SifInitRpc(0);
+			while(!SifIopReset("", 0)){};
+			while(!SifIopSync()){};
+			SifInitRpc(0);
+			
+			// Launch OSDSYS
+			LoadExecPS2("rom0:OSDSYS", 0, NULL);
+			goto shutdown;
+		}
+		
 		// CD
 		if (strcmp(cmd[0],"cd") == 0) {
 			if (args != 2) {
