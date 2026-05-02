@@ -480,6 +480,7 @@ void client_loop(int client_handler)
 				entry = readdir(dh);
 				if (entry == NULL) { break; }
 				sendall(client_handler,entry->d_name,strlen(entry->d_name),0);
+				if (entry->d_type == DT_DIR) { sendstr(client_handler,"/"); }
 				sendstr(client_handler,"\n");
 			}
 			
