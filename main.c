@@ -577,6 +577,9 @@ void client_loop(int client_handler)
 			while (1) {
 				entry = readdir(dh);
 				if (entry == NULL) { break; }
+				if (strcmp(entry->d_name,".") == 0 || strcmp(entry->d_name,"..") == 0) {
+					continue;
+				}
 				sendall(client_handler,entry->d_name,strlen(entry->d_name),0);
 				if (entry->d_type == DT_DIR) { sendstr(client_handler,"/"); }
 				sendstr(client_handler,"\n");
