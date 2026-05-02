@@ -405,6 +405,7 @@ void client_loop(int client_handler)
 			sendstr(client_handler,"* pwd - print working directory\n");
 			sendstr(client_handler,"* ls - list files\n");
 			sendstr(client_handler,"* irx - load IRX module\n");
+			sendstr(client_handler,"* elf - BROKEN. launch ELF file\n");
 			sendstr(client_handler,"* recv - receive file\n");
 			goto loop;
 		}
@@ -603,6 +604,40 @@ void client_loop(int client_handler)
 			
 			free(file);
 			goto loop;
+		}
+		
+		// ELF
+		if (strcmp(cmd[0],"elf") == 0) {
+			if (args < 2) {
+				sendstr(client_handler,"syntax: elf <file> [arg 1] ...\n");
+				goto loop;
+			}
+			
+			char ** cmd_elf = malloc((args - 1) * sizeof(char *));
+			if (cmd_elf == NULL) {
+				sendstr(client_handler,"failed to allocate memory!\n");
+				goto loop;
+			}
+			
+			size_t i = 1;
+			while (i < args) {
+				cmd_elf[i - 1] = cmd[i];
+				++i;
+			}
+			
+			sendstr(client_handler,"goodbye!\n");
+			close(client_handler);
+			
+			// Wait for the connection to terminate (find a better way?)
+			DelayThread(2 * 1000 * 1000);
+			
+			// Destroy networking
+			ps2ipDeinit();
+			NetManDeinit();
+			
+			// Launch ELF
+			LoadExecPS2(cmd_elf[0], 0, cmd_elf);
+			goto shutdown;
 		}
 		
 		// RECV
