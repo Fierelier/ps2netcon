@@ -327,10 +327,10 @@ void client_loop(int client_handler)
 			sceSifExitRpc();
 			
 			// Reset iop
-			SifInitRpc(0);
+			sceSifInitRpc(0);
 			while(!SifIopReset("", 0)){};
 			while(!SifIopSync()){};
-			SifInitRpc(0);
+			sceSifInitRpc(0);
 			
 			// Launch OSDSYS
 			LoadExecPS2("rom0:OSDSYS", 0, NULL);
