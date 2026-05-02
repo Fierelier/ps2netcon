@@ -6,13 +6,14 @@
 # Licenced under Academic Free License version 2.0
 # Review ps2sdk README & LICENSE files for further details.
 
-EE_BIN = ps2netcon.elf
+EE_BIN = ps2netcon_uncompressed.elf
+EE_BIN_COMPRESSED = ps2netcon.elf
 EE_OBJS = main.o DEV9_irx.o NETMAN_irx.o SMAP_irx.o SIO2MAN_irx.o MCMAN_irx.o MCSERV_irx.o FILEIO_irx.o loader_elf.o
 EE_LIBS = -lc -lnetman -lps2ip -ldebug -lpatches
 EE_CFLAGS = -Os
 EE_LDFLAGS = -s
 
-all: DEV9_irx.c NETMAN_irx.c SMAP_irx.c loader/loader.elf loader_elf.c $(EE_BIN)
+all: DEV9_irx.c NETMAN_irx.c SMAP_irx.c loader/loader.elf loader_elf.c $(EE_BIN) $(EE_BIN_COMPRESSED)
 
 DEV9_irx.c: $(PS2SDK)/iop/irx/ps2dev9.irx
 	bin2c $< DEV9_irx.c DEV9_irx
@@ -41,12 +42,15 @@ loader/loader.elf: loader/Makefile
 loader_elf.c: loader/loader.elf
 	bin2c loader/loader.elf loader_elf.c loader_elf
 
+ps2netcon.elf: $(EE_BIN)
+	ps2-packer-lite $(EE_BIN) $(EE_BIN_COMPRESSED)
+
 clean:
-	rm -f $(EE_BIN) $(EE_OBJS) *_irx.c *_elf.c
+	rm -f $(EE_BIN) $(EE_BIN_COMPRESSED) $(EE_OBJS) *_irx.c *_elf.c
 	$(MAKE) -C loader clean
 
-run: $(EE_BIN)
-	ps2client execee host:$(EE_BIN)
+run: $(EE_BIN_COMPRESSED)
+	ps2client execee host:$(EE_BIN_COMPRESSED)
 
 reset:
 	ps2client reset
