@@ -7,6 +7,6 @@ TARGET="$3"
 
 (
 	echo "recv '$TARGET' '$SIZE'"
-	pv "$FILE" -p -t -e -a
+	pv "$FILE" --no-splice -p -t -e -a
 	echo "exit"
 ) | socat -b524288 - TCP:"$IP":1234
