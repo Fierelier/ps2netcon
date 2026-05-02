@@ -7,12 +7,12 @@
 # Review ps2sdk README & LICENSE files for further details.
 
 EE_BIN = ps2netcon.elf
-EE_OBJS = main.o DEV9_irx.o NETMAN_irx.o SMAP_irx.o SIO2MAN_irx.o MCMAN_irx.o MCSERV_irx.o FILEIO_irx.o
+EE_OBJS = main.o DEV9_irx.o NETMAN_irx.o SMAP_irx.o SIO2MAN_irx.o MCMAN_irx.o MCSERV_irx.o FILEIO_irx.o loader_elf.o
 EE_LIBS = -lc -lnetman -lps2ip -ldebug -lpatches
 EE_CFLAGS = -Os
 EE_LDFLAGS = -s
 
-all: DEV9_irx.c NETMAN_irx.c SMAP_irx.c $(EE_BIN)
+all: DEV9_irx.c NETMAN_irx.c SMAP_irx.c loader/loader.elf loader_elf.c $(EE_BIN)
 
 DEV9_irx.c: $(PS2SDK)/iop/irx/ps2dev9.irx
 	bin2c $< DEV9_irx.c DEV9_irx
@@ -35,8 +35,15 @@ MCSERV_irx.c: $(PS2SDK)/iop/irx/mcserv.irx
 FILEIO_irx.c: $(PS2SDK)/iop/irx/fileXio.irx
 	bin2c $< FILEIO_irx.c FILEIO_irx
 
+loader/loader.elf: loader/Makefile
+	$(MAKE) -C loader
+
+loader_elf.c: loader/loader.elf
+	bin2c loader/loader.elf loader_elf.c loader_elf
+
 clean:
-	rm -f $(EE_BIN) $(EE_OBJS) *_irx.c
+	rm -f $(EE_BIN) $(EE_OBJS) *_irx.c *_elf.c
+	$(MAKE) -C loader clean
 
 run: $(EE_BIN)
 	ps2client execee host:$(EE_BIN)

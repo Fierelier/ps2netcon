@@ -40,6 +40,10 @@ extern unsigned char MCSERV_irx[];
 extern unsigned int size_MCSERV_irx;
 extern unsigned char FILEIO_irx[];
 extern unsigned int size_FILEIO_irx;
+extern unsigned char loader_elf[];
+extern unsigned int size_loader_elf;
+
+#include "elf.c"
 
 int dir_exists(char * name) {
 	int result = 0;
@@ -636,7 +640,7 @@ void client_loop(int client_handler)
 			NetManDeinit();
 			
 			// Launch ELF
-			LoadExecPS2(cmd_elf[0], 0, cmd_elf);
+			LoadELFFromFile(args - 1, cmd_elf);
 			goto shutdown;
 		}
 		
