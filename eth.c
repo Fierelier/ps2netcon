@@ -212,23 +212,9 @@ static void ethPrintLinkStatus(void)
 	scr_printf("Flow Control\n");
 }
 
-static int ethStart(void) {
+static int ethStart(unsigned char * ip, unsigned char * netmask, unsigned char * gateway) {
 	struct ip4_addr IP, NM, GW, DNS;
 	int EthernetLinkMode;
-
-	//Reboot IOP
-	sceSifInitRpc(0);
-	while(!SifIopReset("", 0)){};
-	while(!SifIopSync()){};
-
-	//Initialize SIF services
-	sceSifInitRpc(0);
-	SifLoadFileInit();
-	SifInitIopHeap();
-	sbv_patch_enable_lmb();
-	
-	//Initialize debug screen
-	init_scr();
 
 	//Load modules
 	SifExecModuleBuffer(DEV9_irx, size_DEV9_irx, 0, NULL, NULL);
@@ -248,11 +234,11 @@ static int ethStart(void) {
 	}
 
 	//Initialize IP address.
-	IP4_ADDR(&IP, 192, 168, 0, 10);
-	IP4_ADDR(&NM, 255, 255, 255, 0);
-	IP4_ADDR(&GW, 192, 168, 0, 1);
+	IP4_ADDR(&IP, ip[0], ip[1], ip[2], ip[3]);
+	IP4_ADDR(&NM, netmask[0], netmask[1], netmask[2], netmask[3]);
+	IP4_ADDR(&GW, gateway[0], gateway[1], gateway[2], gateway[3]);
 	//DNS is not required if the DNS service is not used, but this demo will show how it is done.
-	IP4_ADDR(&DNS, 192, 168, 0, 1);
+	IP4_ADDR(&DNS, gateway[0], gateway[1], gateway[2], gateway[3]);
 
 	//Initialize the TCP/IP protocol stack.
 	ps2ipInit(&IP, &NM, &GW);
@@ -263,7 +249,7 @@ static int ethStart(void) {
 	ethApplyIPConfig(0, &IP, &NM, &GW, &DNS); // ?
 
 	//Wait for the link to become ready.
-	scr_printf("Waiting for connection...\n");
+	scr_printf("Waiting for connection ...\n");
 	if(ethWaitValidNetIFLinkState() != 0) {
 		scr_printf("Error: failed to get valid link status.\n");
 		return 1;

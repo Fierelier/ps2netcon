@@ -217,6 +217,35 @@ int unlink_cb(const char *fpath, const struct stat *sb, int typeflag, struct FTW
     return rv;
 }
 
+void get_ip_config(unsigned char * ip, unsigned char * nm, unsigned char * gw) {
+	scr_printf("Reading IP config from mc0:/SYS-CONF/IPCONFIG.DAT ...\n");
+	FILE * fh = fopen("mc0:/SYS-CONF/IPCONFIG.DAT","rb");
+	if (fh == NULL) {
+		goto fail_open;
+	}
+	
+	if (fscanf(fh,"%hhu.%hhu.%hhu.%hhu ",&ip[0],&ip[1],&ip[2],&ip[3]) != 4) goto fail_syntax;
+	if (fscanf(fh,"%hhu.%hhu.%hhu.%hhu ",&nm[0],&nm[1],&nm[2],&nm[3]) != 4) goto fail_syntax;
+	if (fscanf(fh,"%hhu.%hhu.%hhu.%hhu",&gw[0],&gw[1],&gw[2],&gw[3]) != 4) goto fail_syntax;
+	goto exit;
+	
+	fail_open:;
+	scr_printf("Failed to open config file, using standard ...\n");
+	goto fail;
+	
+	fail_syntax:;
+	scr_printf("Invalid config syntax, using standard ...\n");
+	fclose(fh);
+	goto fail;
+	
+	fail:;
+	ip[0] = 192; ip[1] = 168; ip[2] = 0; ip[3] = 10;
+	nm[0] = 255; nm[1] = 255; nm[2] = 255; nm[3] = 0;
+	gw[0] = 192; gw[1] = 168; gw[2] = 0; gw[3] = 1;
+	
+	exit:;
+}
+
 // Load file into memory
 void * allocfile(size_t * size, char * fp) {
 	// Open file
@@ -586,12 +615,41 @@ void server_loop()
 int main(int argc, char *argv[])
 {
 	while(1) {
-		ethStart();
+		unsigned char ip[4];
+		unsigned char netmask[4];
+		unsigned char gateway[4];
+		
+		// Reboot IOP
+		sceSifInitRpc(0);
+		while(!SifIopReset("", 0)){};
+		while(!SifIopSync()){};
+
+		// Initialize SIF services
+		sceSifInitRpc(0);
+		SifLoadFileInit();
+		SifInitIopHeap();
+		sbv_patch_enable_lmb(); // Enable loading modules from mem buffer
+		sbv_patch_fileio(); // Patch file I/O bugs
+		
+		// Initialize debug screen
+		init_scr();
+		scr_setbgcolor(0xFFFFFF);
+		scr_setfontcolor(0x000000);
+		scr_clear();
+		
+		// Load Memory card Modules
 		SifExecModuleBuffer(SIO2MAN_irx, size_SIO2MAN_irx, 0, NULL, NULL);
 		SifExecModuleBuffer(MCMAN_irx, size_MCMAN_irx, 0, NULL, NULL);
 		SifExecModuleBuffer(MCSERV_irx, size_MCSERV_irx, 0, NULL, NULL);
 		SifExecModuleBuffer(FILEIO_irx, size_FILEIO_irx, 0, NULL, NULL);
-		sbv_patch_fileio(); // This may have to go outside of this loop
+		
+		// Get IP config
+		get_ip_config(ip,netmask,gateway);
+		
+		// Initialize ethernet
+		ethStart(ip,netmask,gateway);
+		
+		// Go into server loop
 		server_loop();
 	}
 	return 0;
