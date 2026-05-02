@@ -337,6 +337,23 @@ void client_loop(int client_handler)
 			goto shutdown;
 		}
 		
+		// HELP
+		if (strcmp(cmd[0],"help") == 0) {
+			sendstr(client_handler,"* exit - leave session\n");
+			sendstr(client_handler,"* reset - restart system\n");
+			sendstr(client_handler,"* help - this help\n");
+			sendstr(client_handler,"* cd - change working directory\n");
+			sendstr(client_handler,"* mkdir - make directory\n");
+			sendstr(client_handler,"* rmdir - BROKEN. remove directory\n");
+			sendstr(client_handler,"* rm - remove file\n");
+			sendstr(client_handler,"* mv - BROKEN. move/rename file\n");
+			sendstr(client_handler,"* pwd - print working directory\n");
+			sendstr(client_handler,"* ls - list files\n");
+			sendstr(client_handler,"* irx - load IRX module\n");
+			sendstr(client_handler,"* recv - receive file\n");
+			goto loop;
+		}
+		
 		// CD
 		if (strcmp(cmd[0],"cd") == 0) {
 			if (args != 2) {
