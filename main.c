@@ -25,6 +25,7 @@
 #include <limits.h>
 #include <ftw.h>
 #include <stdint.h>
+#include <errno.h>
 
 #include "eth.c"
 
@@ -211,10 +212,64 @@ void qrtn(int comp, char * err) {
 	}
 }
 
-int unlink_cb(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf)
-{
-    int rv = remove(fpath);
-    return rv;
+int get_first_file(DIR * dh, struct dirent ** entry) {
+	errno = 0;
+	rewinddir(dh);
+	while (1) {
+		*entry = readdir(dh);
+		if (*entry == NULL) {
+			if (errno != 0) { return 1; }
+			return 0;
+		}
+		
+		if (strcmp((*entry)->d_name,".") == 0) { continue; }
+		if (strcmp((*entry)->d_name,"..") == 0) { continue; }
+		return 0;
+	}
+	return 1;
+}
+
+int is_directory_empty(DIR * dh) {
+	struct dirent * entry;
+	if (get_first_file(dh,&entry)) {
+		return -1;
+	}
+	if (entry == NULL) { return 1; }
+	return 0;
+}
+
+// TODO: check pathbuf bounds
+int get_first_removable(char * pathbuf, char * path) {
+	struct dirent * entry;
+	DIR *dh = NULL;
+	strcpy(pathbuf,path);
+	
+	while (1) {
+		dh = opendir(pathbuf);
+		if (dh == NULL) { return 1; }
+		if (get_first_file(dh,&entry)) {
+			closedir(dh);
+			return 1;
+		}
+		
+		if (entry == NULL) {
+			closedir(dh);
+			return 0;
+		}
+		
+		strcat(pathbuf,"/");
+		strcat(pathbuf,entry->d_name);
+		
+		if (entry->d_type == DT_DIR) {
+			closedir(dh);
+			continue;
+		}
+		
+		closedir(dh);
+		return 0;
+	}
+	
+	return 1;
 }
 
 void get_ip_config(unsigned char * ip, unsigned char * nm, unsigned char * gw) {
@@ -344,7 +399,7 @@ void client_loop(int client_handler)
 			sendstr(client_handler,"* help - this help\n");
 			sendstr(client_handler,"* cd - change working directory\n");
 			sendstr(client_handler,"* mkdir - make directory\n");
-			sendstr(client_handler,"* rmdir - BROKEN. remove directory\n");
+			sendstr(client_handler,"* rmdir - remove directory\n");
 			sendstr(client_handler,"* rm - remove file\n");
 			sendstr(client_handler,"* mv - BROKEN. move/rename file\n");
 			sendstr(client_handler,"* pwd - print working directory\n");
@@ -389,27 +444,48 @@ void client_loop(int client_handler)
 				goto loop;
 			}
 			
-			/*
 			sendstr(client_handler,"are you sure you want to delete '");
 			sendall(client_handler,cmd[1],strlen(cmd[1]),0);
-			sendstr(client_handler,"'? [Y/N]: ");
+			sendstr(client_handler,"' and its contents? [Y/N]: ");
 			
-			char choice;
-			if (recvall(client_handler,&choice,1,0) != 1) {
+			char choice[2];
+			if (recvall(client_handler,choice,2,0) != 2) {
 				goto loop;
 			}
 			
-			
-			if (choice != 'Y') {
+			if (strcmp(choice,"Y\n") != 0) {
 				sendstr(client_handler,"canceled.\n");
 				goto loop;
 			}
-			*/
 			
-			if (nftw(cmd[1],unlink_cb,64,FTW_DEPTH | FTW_PHYS)) {
-				sendstr(client_handler,"deleting the directory failed.\n");
+			char * pathbuf = malloc(PATH_MAX);
+			if (pathbuf == NULL) {
+				sendstr(client_handler,"failed to allocate memory!\n");
+				goto loop;
 			}
 			
+			while (1) {
+				if (get_first_removable(pathbuf,cmd[1])) {
+					sendstr(client_handler,"finding removable file failed.\n");
+					free(pathbuf);
+					goto loop;
+				}
+				
+				if (remove(pathbuf)) {
+					sendstr(client_handler,"deleting '");
+					sendall(client_handler,pathbuf,strlen(pathbuf),0);
+					sendstr(client_handler,"' failed.\n");
+					free(pathbuf);
+					goto loop;
+				}
+				
+				if (strcmp(cmd[1],pathbuf) == 0) {
+					free(pathbuf);
+					goto loop;
+				}
+			}
+			
+			free(pathbuf);
 			goto loop;
 		}
 		
