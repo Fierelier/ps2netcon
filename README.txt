@@ -31,6 +31,21 @@ IP NETMASK GATEWAY
 Here is a valid IPCONFIG.DAT for example:
 192.168.0.10 255.255.255.0 192.168.0.1
 
+COMMANDS:
+* exit - leave session
+* reset - restart system
+* help - this help
+* cd - change working directory
+* mkdir - make directory
+* rmdir - remove directory
+* rm - remove file
+* mv - BROKEN. move/rename file
+* pwd - print working directory
+* ls - list files
+* irx - load IRX module
+* elf - BROKEN. launch ELF file
+* recv - receive file
+
 TODO:
 * Commands for copying files
 * Command for launching elf files, preferably with arguments
