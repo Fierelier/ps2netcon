@@ -403,7 +403,9 @@ void client_loop(int client_handler)
 				goto loop;
 			}
 			
-			remove(cmd[1]);
+			if (remove(cmd[1])) {
+				sendstr(client_handler,"removing file failed.\n");
+			}
 			
 			goto loop;
 		}
@@ -415,7 +417,9 @@ void client_loop(int client_handler)
 				goto loop;
 			}
 			
-			rename(cmd[1],cmd[2]);
+			if (rename(cmd[1],cmd[2])) {
+				sendstr(client_handler,"renaming file failed.\n");
+			}
 			
 			goto loop;
 		}
