@@ -14,7 +14,7 @@ irx mc0:/APPS/neutrino/modules/bdmfs_fatfs.irx
 irx mc0:/APPS/neutrino/modules/ata_bd.irx
 
 And then transferring by using sendfile.sh:
-./sendfile.sh 192.168.0.1 "my.iso" "mass0:/DVD/my.iso"
+./sendfile.sh 192.168.0.10 "my.iso" "mass0:/DVD/my.iso"
 
 In my testing, the speed was over 4.0 MiB/s, and could reach and maintain over 5.0 MiB/s given some time.
 
