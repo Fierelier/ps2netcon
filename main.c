@@ -16,6 +16,7 @@
 #include <stdio.h>
 #include <tcpip.h>
 #include <delaythread.h>
+#include <elf-loader.h>
 
 #include <string.h>
 #include <stdlib.h>
@@ -40,10 +41,6 @@ extern unsigned char MCSERV_irx[];
 extern unsigned int size_MCSERV_irx;
 extern unsigned char FILEIO_irx[];
 extern unsigned int size_FILEIO_irx;
-extern unsigned char loader_elf[];
-extern unsigned int size_loader_elf;
-
-#include "elf.c"
 
 int dir_exists(char * name) {
 	int result = 0;
@@ -409,7 +406,7 @@ void client_loop(int client_handler)
 			sendstr(client_handler,"* pwd - print working directory\n");
 			sendstr(client_handler,"* ls - list files\n");
 			sendstr(client_handler,"* irx - load IRX module\n");
-			sendstr(client_handler,"* elf - BROKEN. launch ELF file\n");
+			sendstr(client_handler,"* elf - launch ELF file\n");
 			sendstr(client_handler,"* recv - receive file\n");
 			goto loop;
 		}
@@ -643,7 +640,7 @@ void client_loop(int client_handler)
 			NetManDeinit();
 			
 			// Launch ELF
-			LoadELFFromFile(args - 1, cmd_elf);
+			LoadELFFromFile(cmd_elf[0], args - 1, cmd_elf);
 			goto shutdown;
 		}
 		

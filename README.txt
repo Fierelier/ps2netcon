@@ -43,7 +43,7 @@ COMMANDS:
 * pwd - print working directory
 * ls - list files
 * irx - load IRX module
-* elf - BROKEN. launch ELF file
+* elf - launch ELF file
 * recv - receive file
 
 TODO:
