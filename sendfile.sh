@@ -4,6 +4,7 @@ IP="$1"
 FILE="$2"
 SIZE="$(stat -c%s "$FILE")"
 TARGET="$3"
+TARGET="${TARGET//\\/\\\\}" # replace \ with \\
 TARGET="${TARGET//\'/\\\'}" # replace ' with \'
 
 (
