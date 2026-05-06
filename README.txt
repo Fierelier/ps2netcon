@@ -54,3 +54,4 @@ TODO:
 THANKS:
 * rpc/tcpips/ee-echo sample in PS2SDK
 * network/tcpip-basic sample in PS2SDK
+* uyjulian for helping me with various things
