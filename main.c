@@ -402,6 +402,8 @@ void client_loop(int client_handler)
 		
 		// RESET
 		if (strcmp(cmd[0],"reset") == 0) {
+			FlushCache(0);
+			FlushCache(2);
 			sendprint(client_handler,"goodbye!\n");
 			close(client_handler);
 			
@@ -659,6 +661,8 @@ void client_loop(int client_handler)
 				++i;
 			}
 			
+			FlushCache(0);
+			FlushCache(2);
 			sendprint(client_handler,"goodbye!\n");
 			close(client_handler);
 			
@@ -722,6 +726,8 @@ void client_loop(int client_handler)
 			
 			fclose(fh);
 			free(buf);
+			FlushCache(0);
+			FlushCache(2);
 			goto loop;
 		}
 		
