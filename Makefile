@@ -41,7 +41,6 @@ ps2netcon.elf: $(EE_BIN)
 
 clean:
 	rm -f $(EE_BIN) $(EE_BIN_COMPRESSED) $(EE_OBJS) *_irx.c *_elf.c
-	$(MAKE) -C loader clean
 
 run: $(EE_BIN_COMPRESSED)
 	ps2client execee host:$(EE_BIN_COMPRESSED)
