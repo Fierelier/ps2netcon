@@ -67,7 +67,38 @@ ssize_t sendall(int sockfd, void * buffer, size_t size, int flags) {
 	return total;
 }
 
-#define sendstr(sockfd,s) sendall(sockfd,s,sizeof(s),0)
+int sendprint(int sockfd, char * format, ...) {
+	va_list args;
+	va_start(args,format);
+	int length = vsnprintf((char *)NULL,0,format,args);
+	if (length < 1) {
+		va_end(args);
+		return length;
+	}
+	
+	char * str = malloc(length + 1);
+	if (str == NULL) {
+		va_end(args);
+		return -1;
+	}
+	
+	length = vsnprintf(str,length + 1,format,args);
+	if (length < 0) {
+		free(str);
+		va_end(args);
+		return length;
+	}
+	
+	if (sendall(sockfd,str,length,0) < 0) {
+		free(str);
+		va_end(args);
+		return -1;
+	}
+	
+	free(str);
+	va_end(args);
+	return length;
+}
 
 ssize_t recvall(int sockfd, void * buffer, size_t size, int flags) {
 	size_t total = 0;
@@ -348,7 +379,7 @@ void * allocfile(size_t * size, char * fp) {
 void client_loop(int client_handler)
 {
 	while (1) {
-		sendstr(client_handler,">");
+		sendprint(client_handler,">");
 		char ** cmd = recvcmd(client_handler);
 		if (cmd == NULL) { return; }
 		/*ssize_t i = 0;
@@ -365,13 +396,13 @@ void client_loop(int client_handler)
 		
 		// EXIT
 		if (strcmp(cmd[0],"exit") == 0) {
-			sendstr(client_handler,"goodbye!\n");
+			sendprint(client_handler,"goodbye!\n");
 			goto exit;
 		}
 		
 		// RESET
 		if (strcmp(cmd[0],"reset") == 0) {
-			sendstr(client_handler,"goodbye!\n");
+			sendprint(client_handler,"goodbye!\n");
 			close(client_handler);
 			
 			// Wait for the connection to terminate (find a better way?)
@@ -395,31 +426,31 @@ void client_loop(int client_handler)
 		
 		// HELP
 		if (strcmp(cmd[0],"help") == 0) {
-			sendstr(client_handler,"* exit - leave session\n");
-			sendstr(client_handler,"* reset - restart system\n");
-			sendstr(client_handler,"* help - this help\n");
-			sendstr(client_handler,"* cd - change working directory\n");
-			sendstr(client_handler,"* mkdir - make directory\n");
-			sendstr(client_handler,"* rmdir - remove directory\n");
-			sendstr(client_handler,"* rm - remove file\n");
-			sendstr(client_handler,"* mv - BROKEN. move/rename file\n");
-			sendstr(client_handler,"* pwd - print working directory\n");
-			sendstr(client_handler,"* ls - list files\n");
-			sendstr(client_handler,"* irx - load IRX module\n");
-			sendstr(client_handler,"* elf - launch ELF file\n");
-			sendstr(client_handler,"* recv - receive file\n");
+			sendprint(client_handler,"* exit - leave session\n");
+			sendprint(client_handler,"* reset - restart system\n");
+			sendprint(client_handler,"* help - this help\n");
+			sendprint(client_handler,"* cd - change working directory\n");
+			sendprint(client_handler,"* mkdir - make directory\n");
+			sendprint(client_handler,"* rmdir - remove directory\n");
+			sendprint(client_handler,"* rm - remove file\n");
+			sendprint(client_handler,"* mv - BROKEN. move/rename file\n");
+			sendprint(client_handler,"* pwd - print working directory\n");
+			sendprint(client_handler,"* ls - list files\n");
+			sendprint(client_handler,"* irx - load IRX module\n");
+			sendprint(client_handler,"* elf - launch ELF file\n");
+			sendprint(client_handler,"* recv - receive file\n");
 			goto loop;
 		}
 		
 		// CD
 		if (strcmp(cmd[0],"cd") == 0) {
 			if (args != 2) {
-				sendstr(client_handler,"syntax: cd <path>\n");
+				sendprint(client_handler,"syntax: cd <path>\n");
 				goto loop;
 			}
 			
 			if (chdir(cmd[1])) {
-				sendstr(client_handler,"failed to change directory!\n");
+				sendprint(client_handler,"failed to change directory!\n");
 			}
 			
 			goto loop;
@@ -428,12 +459,12 @@ void client_loop(int client_handler)
 		// MKDIR
 		if (strcmp(cmd[0],"mkdir") == 0) {
 			if (args != 2) {
-				sendstr(client_handler,"syntax: mkdir <path>\n");
+				sendprint(client_handler,"syntax: mkdir <path>\n");
 				goto loop;
 			}
 			
 			if (mkdir(cmd[1],0755)) {
-				sendstr(client_handler,"failed to create directory!\n");
+				sendprint(client_handler,"failed to create directory!\n");
 			}
 			
 			goto loop;
@@ -442,13 +473,11 @@ void client_loop(int client_handler)
 		// RMDIR
 		if (strcmp(cmd[0],"rmdir") == 0) {
 			if (args != 2) {
-				sendstr(client_handler,"syntax: rmdir <path>\n");
+				sendprint(client_handler,"syntax: rmdir <path>\n");
 				goto loop;
 			}
 			
-			sendstr(client_handler,"are you sure you want to delete '");
-			sendall(client_handler,cmd[1],strlen(cmd[1]),0);
-			sendstr(client_handler,"' and its contents? [Y/N]: ");
+			sendprint(client_handler,"are you sure you want to delete '%s' and its contents? [Y/N]: ",cmd[1]);
 			
 			char choice[2];
 			if (recvall(client_handler,choice,2,0) != 2) {
@@ -456,27 +485,26 @@ void client_loop(int client_handler)
 			}
 			
 			if (strcmp(choice,"Y\n") != 0) {
-				sendstr(client_handler,"canceled.\n");
+				sendprint(client_handler,"canceled.\n");
 				goto loop;
 			}
 			
 			char * pathbuf = malloc(PATH_MAX);
 			if (pathbuf == NULL) {
-				sendstr(client_handler,"failed to allocate memory!\n");
+				sendprint(client_handler,"failed to allocate memory!\n");
 				goto loop;
 			}
 			
 			while (1) {
 				if (get_first_removable(pathbuf,cmd[1])) {
-					sendstr(client_handler,"finding removable file failed.\n");
+					sendprint(client_handler,"finding removable file failed.\n");
 					free(pathbuf);
 					goto loop;
 				}
 				
-				if (remove(pathbuf)) {
-					sendstr(client_handler,"deleting '");
-					sendall(client_handler,pathbuf,strlen(pathbuf),0);
-					sendstr(client_handler,"' failed.\n");
+				int rtn = remove(pathbuf);
+				if (rtn) {
+					sendprint(client_handler,"removing '%s' failed (error: %d).\n",pathbuf,rtn,rtn);
 					free(pathbuf);
 					goto loop;
 				}
@@ -494,12 +522,13 @@ void client_loop(int client_handler)
 		// RM
 		if (strcmp(cmd[0],"rm") == 0) {
 			if (args != 2) {
-				sendstr(client_handler,"syntax: rm <path>\n");
+				sendprint(client_handler,"syntax: rm <path>\n");
 				goto loop;
 			}
 			
-			if (remove(cmd[1])) {
-				sendstr(client_handler,"removing file failed.\n");
+			int rtn = remove(cmd[1]);
+			if (rtn) {
+				sendprint(client_handler,"removing '%s' failed (error: %d).\n",cmd[1],rtn);
 			}
 			
 			goto loop;
@@ -508,12 +537,13 @@ void client_loop(int client_handler)
 		// MV
 		if (strcmp(cmd[0],"mv") == 0) {
 			if (args != 3) {
-				sendstr(client_handler,"syntax: mv <oldpath> <newpath>\n");
+				sendprint(client_handler,"syntax: mv <oldpath> <newpath>\n");
 				goto loop;
 			}
 			
-			if (rename(cmd[1],cmd[2])) {
-				sendstr(client_handler,"renaming file failed.\n");
+			int rtn = rename(cmd[1],cmd[2]);
+			if (rtn) {
+				sendprint(client_handler,"renaming '%s' to '%s' failed (error: %d).\n",cmd[1],cmd[2],rtn);
 			}
 			
 			goto loop;
@@ -523,39 +553,39 @@ void client_loop(int client_handler)
 		if (strcmp(cmd[0],"pwd") == 0) {
 			char * cwd = malloc(PATH_MAX);
 			if (cwd == NULL) {
-				sendstr(client_handler,"could not allocate memory!\n");
+				sendprint(client_handler,"could not allocate memory!\n");
 				goto loop;
 			}
 			
 			if (getcwd(cwd,PATH_MAX) != cwd) {
 				free(cwd);
-				sendstr(client_handler,"could not get current working directory!\n");
+				sendprint(client_handler,"could not get current working directory!\n");
 				goto loop;
 			}
 			
 			sendall(client_handler,cwd,strlen(cwd),0);
 			free(cwd);
-			sendstr(client_handler,"\n");
+			sendprint(client_handler,"\n");
 			goto loop;
 		}
 		
 		// LS
 		if (strcmp(cmd[0],"ls") == 0) {
 			if (args > 2) {
-				sendstr(client_handler,"syntax: ls [path]\n");
+				sendprint(client_handler,"syntax: ls [path]\n");
 				goto loop;
 			}
 			
 			char * path = malloc(PATH_MAX);
 			if (path == NULL) {
-				sendstr(client_handler,"could not allocate memory!\n");
+				sendprint(client_handler,"could not allocate memory!\n");
 				goto loop;
 			}
 			
 			if (args < 2) {
 				if (getcwd(path,PATH_MAX) != path) {
 					free(path);
-					sendstr(client_handler,"could not get current working directory!\n");
+					sendprint(client_handler,"could not get current working directory!\n");
 					goto loop;
 				}
 			} else {
@@ -566,7 +596,7 @@ void client_loop(int client_handler)
 			struct dirent * entry;
 			DIR *dh = opendir(path);
 			if (dh == NULL) {
-				sendstr(client_handler,"opendir() failed on directory\n");
+				sendprint(client_handler,"opendir() failed on directory\n");
 				free(path);
 				goto loop;
 			}
@@ -578,8 +608,8 @@ void client_loop(int client_handler)
 					continue;
 				}
 				sendall(client_handler,entry->d_name,strlen(entry->d_name),0);
-				if (entry->d_type == DT_DIR) { sendstr(client_handler,"/"); }
-				sendstr(client_handler,"\n");
+				if (entry->d_type == DT_DIR) { sendprint(client_handler,"/"); }
+				sendprint(client_handler,"\n");
 			}
 			
 			closedir(dh);
@@ -591,19 +621,19 @@ void client_loop(int client_handler)
 		// IRX
 		if (strcmp(cmd[0],"irx") == 0) {
 			if (args != 2) {
-				sendstr(client_handler,"syntax: irx <path>\n");
+				sendprint(client_handler,"syntax: irx <path>\n");
 				goto loop;
 			}
 			
 			size_t size;
 			void * file = allocfile(&size,cmd[1]);
 			if (file == NULL) {
-				sendstr(client_handler,"failed to load file into memory!\n");
+				sendprint(client_handler,"failed to load file into memory!\n");
 				goto loop;
 			}
 			
 			if (SifExecModuleBuffer(file,size,0,NULL,NULL) < 0) {
-				sendstr(client_handler,"failed to load module!\n");
+				sendprint(client_handler,"failed to load module!\n");
 			}
 			
 			free(file);
@@ -613,13 +643,13 @@ void client_loop(int client_handler)
 		// ELF
 		if (strcmp(cmd[0],"elf") == 0) {
 			if (args < 2) {
-				sendstr(client_handler,"syntax: elf <file> [arg 1] ...\n");
+				sendprint(client_handler,"syntax: elf <file> [arg 1] ...\n");
 				goto loop;
 			}
 			
 			char ** cmd_elf = malloc((args - 1) * sizeof(char *));
 			if (cmd_elf == NULL) {
-				sendstr(client_handler,"failed to allocate memory!\n");
+				sendprint(client_handler,"failed to allocate memory!\n");
 				goto loop;
 			}
 			
@@ -629,7 +659,7 @@ void client_loop(int client_handler)
 				++i;
 			}
 			
-			sendstr(client_handler,"goodbye!\n");
+			sendprint(client_handler,"goodbye!\n");
 			close(client_handler);
 			
 			// Wait for the connection to terminate (find a better way?)
@@ -647,21 +677,21 @@ void client_loop(int client_handler)
 		// RECV
 		if (strcmp(cmd[0],"recv") == 0) {
 			if (args != 3) {
-				sendstr(client_handler,"syntax: recv <path> <bytes>\n");
+				sendprint(client_handler,"syntax: recv <path> <bytes>\n");
 				goto exit;
 			}
 			
 			FILE * fh = fopen(cmd[1],"wb");
 			if (fh == NULL) {
-				sendstr(client_handler,"creating '");
+				sendprint(client_handler,"creating '");
 				sendall(client_handler,cmd[1],strlen(cmd[1]),0);
-				sendstr(client_handler,"' failed!\n");
+				sendprint(client_handler,"' failed!\n");
 				goto exit;
 			}
 			
 			char * buf = malloc(PS2NETCON_RECV_BUFSIZE);
 			if (buf == NULL) {
-				sendstr(client_handler,"allocating memory failed!\n");
+				sendprint(client_handler,"allocating memory failed!\n");
 				fclose(fh);
 				goto exit;
 			}
@@ -681,9 +711,9 @@ void client_loop(int client_handler)
 				if (status != 1) {
 					fclose(fh);
 					free(buf);
-					sendstr(client_handler,"writing to '");
+					sendprint(client_handler,"writing to '");
 					sendall(client_handler,cmd[1],strlen(cmd[1]),0);
-					sendstr(client_handler,"' failed!\n");
+					sendprint(client_handler,"' failed!\n");
 					goto exit;
 				}
 				
@@ -695,9 +725,7 @@ void client_loop(int client_handler)
 			goto loop;
 		}
 		
-		sendstr(client_handler,"command '");
-		sendall(client_handler,cmd[0],strlen(cmd[0]),0);
-		sendstr(client_handler,"' not found!\n");
+		sendprint(client_handler,"command '%s' not found!\n",cmd[0]);
 		
 		loop:;
 		freecmd(cmd);
