@@ -90,6 +90,7 @@ int sendprint(int sockfd, char * format, ...) {
 		return length;
 	}
 	
+	scr_printf(str);
 	if (sendall(sockfd,str,length,0) < 0) {
 		free(str);
 		va_end(args);
@@ -383,6 +384,7 @@ void client_loop(int client_handler)
 		sendprint(client_handler,">");
 		char ** cmd = recvcmd(client_handler);
 		if (cmd == NULL) { return; }
+		scr_clear();
 		/*ssize_t i = 0;
 		while (1) {
 			if (cmd[i] == NULL) { break; }
@@ -649,9 +651,8 @@ void client_loop(int client_handler)
 				goto loop;
 			}
 			
-			sendall(client_handler,cwd,strlen(cwd),0);
+			sendprint(client_handler,"%s\n",cwd);
 			free(cwd);
-			sendprint(client_handler,"\n");
 			goto loop;
 		}
 		
@@ -693,7 +694,7 @@ void client_loop(int client_handler)
 				if (strcmp(entry->d_name,".") == 0 || strcmp(entry->d_name,"..") == 0) {
 					continue;
 				}
-				sendall(client_handler,entry->d_name,strlen(entry->d_name),0);
+				sendprint(client_handler,entry->d_name);
 				if (entry->d_type == DT_DIR) { sendprint(client_handler,"/"); }
 				sendprint(client_handler,"\n");
 			}
@@ -771,9 +772,7 @@ void client_loop(int client_handler)
 			
 			FILE * fh = fopen(cmd[1],"wb");
 			if (fh == NULL) {
-				sendprint(client_handler,"creating '");
-				sendall(client_handler,cmd[1],strlen(cmd[1]),0);
-				sendprint(client_handler,"' failed!\n");
+				sendprint(client_handler,"creating '%s' failed!\n",cmd[1]);
 				goto exit;
 			}
 			
@@ -799,9 +798,7 @@ void client_loop(int client_handler)
 				if (status != 1) {
 					fclose(fh);
 					free(buf);
-					sendprint(client_handler,"writing to '");
-					sendall(client_handler,cmd[1],strlen(cmd[1]),0);
-					sendprint(client_handler,"' failed!\n");
+					sendprint(client_handler,"writing to '%s' failed!\n",cmd[1]);
 					goto exit;
 				}
 				
