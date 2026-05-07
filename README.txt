@@ -48,7 +48,6 @@ COMMANDS:
 
 TODO:
 * Commands for copying files
-* Command for launching elf files, preferably with arguments
 * Lua scripting?
 
 THANKS:
