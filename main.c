@@ -31,6 +31,7 @@
 #include "eth.c"
 
 #define PS2NETCON_RECV_BUFSIZE 1024 * 128
+#define PS2NETCON_CP_BUFSIZE 1024 * 1024
 
 // bin2c
 extern unsigned char SIO2MAN_irx[];
@@ -548,6 +549,89 @@ void client_loop(int client_handler)
 				sendprint(client_handler,"renaming '%s' to '%s' failed (error: %d).\n",cmd[1],cmd[2],rtn);
 			}
 			
+			goto loop;
+		}
+		
+		// CP
+		if (strcmp(cmd[0],"cp") == 0) {
+			if (args != 3) {
+				sendprint(client_handler,"syntax: cp <frompath> <topath>\n");
+				goto loop;
+			}
+			
+			FILE * ffrom = fopen(cmd[1],"rb");
+			if (ffrom == NULL) {
+				sendprint(client_handler,"could not open '%s' (error: %d).\n",cmd[1],errno);
+				goto loop;
+			}
+			
+			FILE * fto = fopen(cmd[2],"wb");
+			if (fto == NULL) {
+				sendprint(client_handler,"could not open '%s' (error: %d).\n",cmd[1],errno);
+				fclose(ffrom);
+				goto loop;
+			}
+			
+			void * buf = malloc(PS2NETCON_CP_BUFSIZE);
+			if (buf == NULL) {
+				sendprint(client_handler,"could not allocate memory.\n");
+				fclose(ffrom);
+				fclose(fto);
+				goto loop;
+			}
+			
+			struct stat srs;
+			if (fstat(fileno(ffrom),&srs)) {
+				sendprint(client_handler,"could not stat '%s'.\n",cmd[1]);
+				fclose(ffrom);
+				fclose(fto);
+				free(buf);
+			}
+			
+			long long size = (long long)(srs.st_size);
+			long long total = 0;
+			u64 current_time;
+			u64 last_print = GetTimerSystemTime() / 147456;
+			
+			sendprint(client_handler,"progress: %lld / %lld KB\r",total,(size / 1000) + 1);
+			
+			while (1) {
+				size_t sr = fread(buf,1,PS2NETCON_CP_BUFSIZE,ffrom);
+				if (sr > 0) {
+					size_t sw = fwrite(buf,1,sr,fto);
+					total += sw;
+					
+					current_time = GetTimerSystemTime() / 147456;
+					if (last_print > current_time) { last_print = current_time; }
+					
+					if (current_time - last_print >= 1000) {
+						sendprint(client_handler,"progress: %lld / %lld KB\r",(total / 1000) + 1,(size / 1000) + 1);
+						last_print = current_time;
+					}
+					
+					if (sw < sr) {
+						sendprint(client_handler,"progress: %lld / %lld KB\r",(total / 1000) + 1,(size / 1000) + 1);
+						sendprint(client_handler,"\nwriting to '%s' failed (error: %d).\n",cmd[2],ferror(fto));
+						break;
+					}
+				}
+				
+				if (sr < PS2NETCON_CP_BUFSIZE) {
+					sendprint(client_handler,"progress: %lld / %lld KB\r",(total / 1000) + 1,(size / 1000) + 1);
+					if (ferror(ffrom)) {
+						sendprint(client_handler,"\nreading from '%s' failed (error: %d).\n",cmd[1],ferror(ffrom));
+					} else {
+						sendprint(client_handler,"\n");
+					}
+					break;
+				}
+			}
+			
+			fclose(ffrom);
+			fclose(fto);
+			free(buf);
+			FlushCache(0);
+			FlushCache(2);
 			goto loop;
 		}
 		

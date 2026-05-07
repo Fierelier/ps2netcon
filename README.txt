@@ -40,6 +40,7 @@ COMMANDS:
 * rmdir - remove directory
 * rm - remove file
 * mv - BROKEN. move/rename file
+* cp - copy file
 * pwd - print working directory
 * ls - list files
 * irx - load IRX module
