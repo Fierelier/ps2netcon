@@ -444,6 +444,8 @@ void client_loop(int client_handler)
 			sendprint(client_handler,"* irx - load IRX module\n");
 			sendprint(client_handler,"* elf - launch ELF file\n");
 			sendprint(client_handler,"* recv - receive file\n");
+			sendprint(client_handler,"* len - print file length in bytes\n");
+			sendprint(client_handler,"* cat - print file contents, optional start and end byte\n");
 			goto loop;
 		}
 		
@@ -761,6 +763,98 @@ void client_loop(int client_handler)
 			// Launch ELF
 			LoadELFFromFile(cmd_elf[0], args - 1, cmd_elf);
 			goto shutdown;
+		}
+		
+		// LEN
+		if (strcmp(cmd[0],"len") == 0) {
+			if (args != 2) {
+				sendprint(client_handler,"syntax: len <file>\n");
+				goto loop;
+			}
+			
+			FILE * fh = fopen(cmd[1],"rb");
+			if (fh == NULL) {
+				sendprint(client_handler,"opening '%s' failed!\n",cmd[1]);
+				goto loop;
+			}
+			
+			struct stat srs;
+			if (fstat(fileno(fh),&srs)) {
+				fclose(fh);
+				sendprint(client_handler,"could not stat '%s'.\n",cmd[1]);
+				goto loop;
+			}
+			
+			fclose(fh);
+			sendprint(client_handler,"%lld\n",(long long)(srs.st_size));
+			goto loop;
+		}
+		
+		// CAT
+		if (strcmp(cmd[0],"cat") == 0) {
+			if (args < 2 || args > 4) {
+				sendprint(client_handler,"syntax: cat <file> [start byte] [end byte]\n");
+				goto loop;
+			}
+			
+			long long start = 0;
+			long long end = -1;
+			if (args > 2) { start = strtoll(cmd[2],NULL,10); }
+			if (args > 3) { end = strtoll(cmd[3],NULL,10); }
+			if (start < 0 || (args > 3 && end < start)) {
+				sendprint(client_handler,"invalid range!\n");
+				goto loop;
+			}
+			
+			FILE * fh = fopen(cmd[1],"rb");
+			if (fh == NULL) {
+				sendprint(client_handler,"opening '%s' failed!\n",cmd[1]);
+				goto loop;
+			}
+			
+			struct stat srs;
+			if (fstat(fileno(fh),&srs)) {
+				fclose(fh);
+				sendprint(client_handler,"could not stat '%s'.\n",cmd[1]);
+				goto loop;
+			}
+			
+			long long size = (long long)(srs.st_size);
+			if (end < 0 || end > size) { end = size; }
+			if (start >= end) {
+				fclose(fh);
+				goto loop;
+			}
+			
+			if (fseek(fh,(long)start,SEEK_SET)) {
+				fclose(fh);
+				sendprint(client_handler,"seeking in '%s' failed!\n",cmd[1]);
+				goto loop;
+			}
+			
+			char * buf = malloc(PS2NETCON_RECV_BUFSIZE);
+			if (buf == NULL) {
+				fclose(fh);
+				sendprint(client_handler,"allocating memory failed!\n");
+				goto loop;
+			}
+			
+			long long bytes_left = end - start;
+			while (bytes_left > 0) {
+				size_t bytes_read = PS2NETCON_RECV_BUFSIZE;
+				if (bytes_left < (long long)bytes_read) { bytes_read = (size_t)bytes_left; }
+				size_t n = fread(buf,1,bytes_read,fh);
+				if (n < 1 || sendall(client_handler,buf,n,0) < 0) {
+					fclose(fh);
+					free(buf);
+					goto exit;
+				}
+				bytes_left -= n;
+			}
+			
+			fclose(fh);
+			free(buf);
+			goto loop;
 		}
 		
 		// RECV

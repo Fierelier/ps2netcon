@@ -46,6 +46,8 @@ COMMANDS:
 * irx - load IRX module
 * elf - launch ELF file
 * recv - receive file
+* len - print file length in bytes
+* cat - print file contents, optional start and end byte
 
 TODO:
 * Commands for copying files
