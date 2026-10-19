@@ -3,8 +3,8 @@ set -e
 cd "$(dirname "$0")"
 HERE="$(pwd)"
 
-STDGUI="${STDGUI:-$HERE/../../stdgui}"
-UNISOCKET_INC="${UNISOCKET_INC:-$HERE/../..}"
+STDGUI="${STDGUI:-$HERE/stdgui}"
+UNISOCKET_INC="${UNISOCKET_INC:-$HERE}"
 OUT="${OUT:-$HERE/bin}"
 CFLAGS="${CFLAGS:--O2 -Wall -Wextra -Wno-format-truncation}"
 SRC="main.c platform.c zipfs.c ps2.c drivers.c"

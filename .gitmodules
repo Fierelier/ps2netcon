@@ -1,0 +1,6 @@
+[submodule "gui/stdgui"]
+	path = gui/stdgui
+	url = https://git.lumen.sh/Fierelier/stdgui
+[submodule "gui/unisocket"]
+	path = gui/unisocket
+	url = https://git.lumen.sh/Fierelier/unisocket
