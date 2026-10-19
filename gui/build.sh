@@ -32,6 +32,7 @@ win32)
 	W95="-m32 -march=i486 -D_WIN32_WINNT=0x0400 -DWINVER=0x0400 -D__USE_MINGW_ANSI_STDIO=0"
 	W95LD="-Wl,--major-os-version=4,--minor-os-version=0,--major-subsystem-version=4,--minor-subsystem-version=0"
 	WINRES="${WINRES:-i686-w64-mingw32-windres}"
+	command -v $WINRES || WINRES="windres"
 	mkdir -p "$OUT"
 	RES=""
 	if command -v $WINRES >/dev/null 2>&1; then
