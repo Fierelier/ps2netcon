@@ -402,3 +402,21 @@ int ps2_cat(ps2 *p, const char *path, uint64_t start, uint64_t count, char **dat
 	*data = out;
 	return ps2_ok;
 }
+
+int ps2_fire(ps2 *p, const char *command)
+{
+	char *line;
+	size_t n = strlen(command);
+	int r;
+	line = malloc(n + 2);
+	if (!line) return ps2_err;
+	memcpy(line, command, n);
+	line[n] = '\n';
+	line[n + 1] = 0;
+	p->pump = NULL;
+	r = send_all(p, line, n + 1);
+	free(line);
+	if (r != ps2_ok) return r;
+	while (read_more(p, 3000) == ps2_ok);
+	return ps2_ok;
+}

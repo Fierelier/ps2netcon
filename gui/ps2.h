@@ -22,6 +22,7 @@ const char *ps2_ip(ps2 *p);
 int ps2_exec(ps2 *p, const char *command, char **body);
 int ps2_list(ps2 *p, const char *path, char **body);
 int ps2_rmdir(ps2 *p, const char *path, char **body);
+int ps2_fire(ps2 *p, const char *command);
 int ps2_len(ps2 *p, const char *path, uint64_t *length);
 int ps2_cat(ps2 *p, const char *path, uint64_t start, uint64_t count, char **data);
 int ps2_recv_begin(ps2 *p, const char *path, uint64_t size);

@@ -91,6 +91,7 @@ static int loaded_count;
 static pane *pending_pane;
 static int pending_row;
 static int pending_disconnect;
+static char launched_message[300];
 
 static const char *ps2_devices[] = {"mc0:/", "mc1:/", "mass0:/", "mass1:/", "mass2:/", "mass3:/", "mmce0:/", "mmce1:/", "cdrom0:/", "rom0:/"};
 
@@ -1421,6 +1422,91 @@ static void open_drivers(sg_object *b, void *user)
 	if (conn) ps2_load();
 }
 
+static void do_load_irx(sg_object *b, void *user)
+{
+	int *rows = NULL, n, i;
+	char path[2 * path_max], quoted[2 * path_max], cmd[3 * path_max], text[500];
+	(void)b;
+	(void)user;
+	if (!conn || ps2_pane.dir[0] == 0) {
+		set_status("Open a PS2 folder and select IRX files first");
+		return;
+	}
+	n = selected_rows(&ps2_pane, &rows);
+	if (n == 0) {
+		free(rows);
+		set_status("Select IRX files on the PS2 side first");
+		return;
+	}
+	for (i = 0; i < n; i++) {
+		item *it = &ps2_pane.items[rows[i]];
+		char *body = NULL;
+		int r;
+		if (it->is_dir) continue;
+		join_path(path, sizeof path, ps2_pane.dir, it->name);
+		ps2_quote(path, quoted, sizeof quoted);
+		snprintf(cmd, sizeof cmd, "irx %s", quoted);
+		r = ps2_exec(conn, cmd, &body);
+		if (r != ps2_ok) {
+			free(body);
+			free(rows);
+			ps2_failed(r);
+			return;
+		}
+		if (strstr(body, "failed")) {
+			snprintf(text, sizeof text, "Loading %s failed: %s", it->name, body);
+			free(body);
+			free(rows);
+			set_status(text);
+			return;
+		}
+		free(body);
+		if (loaded_count < 40 && !drv_loaded(it->name)) snprintf(loaded_modules[loaded_count++], sizeof loaded_modules[0], "%s", it->name);
+	}
+	free(rows);
+	set_status(n == 1 ? "Module loaded" : "Modules loaded");
+}
+
+static void do_reset(sg_object *b, void *user)
+{
+	(void)b;
+	(void)user;
+	if (!conn) return;
+	if (!confirm_box("Restart the PS2? The connection will be closed.")) return;
+	ps2_fire(conn, "reset");
+	pending_disconnect = 2;
+}
+
+static void do_launch(sg_object *b, void *user)
+{
+	int *rows = NULL, n;
+	char path[2 * path_max], quoted[2 * path_max], cmd[3 * path_max], text[400];
+	item *it;
+	(void)b;
+	(void)user;
+	if (!conn || ps2_pane.dir[0] == 0) {
+		set_status("Open a PS2 folder and select an ELF first");
+		return;
+	}
+	n = selected_rows(&ps2_pane, &rows);
+	if (n != 1 || ps2_pane.items[rows[0]].is_dir) {
+		free(rows);
+		set_status("Select exactly one ELF file on the PS2 side");
+		return;
+	}
+	it = &ps2_pane.items[rows[0]];
+	free(rows);
+	snprintf(text, sizeof text, "Launch '%s'? The connection will be closed.", it->name);
+	if (!confirm_box(text)) return;
+	join_path(path, sizeof path, ps2_pane.dir, it->name);
+	ps2_quote(path, quoted, sizeof quoted);
+	snprintf(cmd, sizeof cmd, "elf %s", quoted);
+	ps2_fire(conn, cmd);
+	snprintf(launched_message, sizeof launched_message, "Launched %s.", it->name);
+	pending_disconnect = 3;
+}
+
+
 static void on_up(sg_object *b, void *user)
 {
 	pane *p = user;
@@ -1578,8 +1664,11 @@ static void build_main(void)
 	status_label = sg_label_create(bottom, "", 0);
 	sg_set_weight(status_label, 1.0f);
 	sg_button_create(bottom, "Drivers...", open_drivers, NULL);
+	sg_button_create(bottom, "Load IRX", do_load_irx, NULL);
 	sg_button_create(bottom, "New folder", do_new_folder, NULL);
 	sg_button_create(bottom, "Delete", do_delete, NULL);
+	sg_button_create(bottom, "Launch ELF", do_launch, NULL);
+	sg_button_create(bottom, "Reset", do_reset, NULL);
 	sg_button_create(bottom, "Disconnect", on_disconnect, NULL);
 	local_load();
 	ps2_load();
@@ -1728,8 +1817,13 @@ int main(void)
 			}
 		}
 		if (pending_disconnect) {
+			int why = pending_disconnect;
 			pending_disconnect = 0;
-			if (main_win) go_disconnected("Disconnected.");
+			if (main_win) {
+				if (why == 2) go_disconnected("PS2 is restarting.");
+				else if (why == 3) go_disconnected(launched_message);
+				else go_disconnected("Disconnected.");
+			}
 		}
 	}
 	if (conn) ps2_close(conn);
